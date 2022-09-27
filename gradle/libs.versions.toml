@@ -1,0 +1,50 @@
+[versions]
+java = "11"
+kotlin = "1.7.10"
+kotest = "5.4.1"
+ignition = "8.1.0"
+
+#coroutines = "1.6.3"
+#serialization = "1.3.3"
+#ktor = "2.0.3"
+
+[plugins]
+kotlin = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+#serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+modl = { id = "io.ia.sdk.modl", version = "0.1.1" }
+ktlint = { id = "org.jlleitschuh.gradle.ktlint", version = "11.0.0" }
+dokka = { id = "org.jetbrains.dokka", version.ref = "kotlin" }
+
+[libraries]
+ignition-common = { group = "com.inductiveautomation.ignitionsdk", name = "ignition-common", version.ref = "ignition" }
+ignition-gateway-api = { group = "com.inductiveautomation.ignitionsdk", name = "gateway-api", version.ref = "ignition" }
+ignition-designer-api = { group = "com.inductiveautomation.ignitionsdk", name = "designer-api", version.ref = "ignition" }
+ignition-client-api = { group = "com.inductiveautomation.ignitionsdk", name = "client-api", version.ref = "ignition" }
+ignition-vision-client-api = { group = "com.inductiveautomation.ignitionsdk", name = "vision-client-api", version.ref = "ignition" }
+
+# test framework
+kotest-junit = { group = "io.kotest", name = "kotest-runner-junit5", version.ref = "kotest" }
+kotest-assertions-core = { group = "io.kotest", name = "kotest-assertions-core", version.ref = "kotest" }
+kotest-property = { group = "io.kotest", name = "kotest-property", version.ref = "kotest" }
+kotest-data = { group = "io.kotest", name = "kotest-framework-datatest", version.ref = "kotest" }
+
+[bundles]
+gateway = [
+    "ignition-common",
+    "ignition-gateway-api",
+]
+designer = [
+    "ignition-common",
+    "ignition-designer-api",
+]
+client = [
+    "ignition-common",
+    "ignition-client-api",
+    "ignition-vision-client-api",
+]
+kotest = [
+    "kotest-assertions-core",
+    "kotest-data",
+    "kotest-junit",
+    "kotest-property",
+]
