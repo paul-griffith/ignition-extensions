@@ -1,7 +1,7 @@
 name: Run Gradle on PRs
 on: pull_request
 jobs:
-  gradle:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -12,5 +12,5 @@ jobs:
         uses: gradle/gradle-build-action@v2
         with:
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
-      - name: Execute Gradle build
-        run: ./gradlew build zipModule
+      - name: Build
+        run: ./gradlew build
