@@ -16,4 +16,5 @@ kotlin {
 dependencies {
     compileOnly(libs.bundles.gateway)
     compileOnly(projects.common)
+    compileOnly(libs.ignition.perspective)
 }

@@ -17,6 +17,7 @@ ignition-gateway-api = { group = "com.inductiveautomation.ignitionsdk", name = "
 ignition-designer-api = { group = "com.inductiveautomation.ignitionsdk", name = "designer-api", version.ref = "ignition" }
 ignition-client-api = { group = "com.inductiveautomation.ignitionsdk", name = "client-api", version.ref = "ignition" }
 ignition-vision-client-api = { group = "com.inductiveautomation.ignitionsdk", name = "vision-client-api", version.ref = "ignition" }
+ignition-perspective = { group = "com.inductiveautomation.perspective", name = "perspective-gateway", version = "2.1.0" }
 
 # test framework
 kotest-junit = { group = "io.kotest", name = "kotest-runner-junit5", version.ref = "kotest" }

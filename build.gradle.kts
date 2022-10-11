@@ -36,6 +36,12 @@ ignitionModule {
         ),
     )
 
+    moduleDependencies.putAll(
+        mapOf(
+            "com.inductiveautomation.perspective" to "GD",
+        ),
+    )
+
     skipModlSigning.set(!findProperty("signModule").toString().toBoolean())
 }
 
