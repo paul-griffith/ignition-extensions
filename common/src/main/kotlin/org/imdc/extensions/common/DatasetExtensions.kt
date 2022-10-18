@@ -123,7 +123,7 @@ object DatasetExtensions {
     }
 
     internal fun Appendable.printDataset(dataset: Dataset, separator: String = "|") {
-        val columnWidths = dataset.columnIndices.associateWith { column ->
+        val columnWidths = IntArray(dataset.columnCount) { column ->
             maxOf(
                 if (dataset.rowCount > 0) {
                     dataset.rowIndices.maxOf { row -> dataset[row, column].toString().length }
@@ -148,7 +148,7 @@ object DatasetExtensions {
         sequence {
             yield("Row")
             for (column in dataset.columnIndices) {
-                yield(dataset.getColumnName(column).padStart(columnWidths.getValue(column)))
+                yield(dataset.getColumnName(column).padStart(columnWidths[column]))
             }
         }.joinToBuffer()
 
@@ -156,7 +156,7 @@ object DatasetExtensions {
         sequence {
             yield("---")
             for (column in dataset.columnIndices) {
-                yield("-".repeat(columnWidths.getValue(column)))
+                yield("-".repeat(columnWidths[column]))
             }
         }.joinToBuffer()
 
@@ -166,7 +166,7 @@ object DatasetExtensions {
             sequence {
                 yield(row.toString().padStart(maxRowLength))
                 for (column in dataset.columnIndices) {
-                    yield(dataset[row, column].toString().padStart(columnWidths.getValue(column)))
+                    yield(dataset[row, column].toString().padStart(columnWidths[column]))
                 }
             }.joinToBuffer()
         }

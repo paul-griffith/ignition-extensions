@@ -1,5 +1,6 @@
 package org.imdc.extensions.common
 
+import com.inductiveautomation.ignition.common.BasicDataset
 import com.inductiveautomation.ignition.common.Dataset
 import com.inductiveautomation.ignition.common.util.DatasetBuilder
 import io.kotest.assertions.asClue
@@ -101,6 +102,23 @@ class DatasetExtensionsTests : JythonTest(
                         | --- | --- | ---- | --- |
                         |   0 |   1 | 3.14 |  pi |
                         |   1 |   2 | 6.28 | tau |
+
+                    """.trimIndent()
+                }
+            }
+
+            test("Empty dataset") {
+                with(DatasetExtensions) {
+                    buildString {
+                        printDataset(
+                            BasicDataset(
+                                listOf("a", "b", "c"),
+                                listOf(String::class.java, String::class.java, String::class.java),
+                            ),
+                        )
+                    } shouldBe """
+                        | Row |   a |   b |   c |
+                        | --- | --- | --- | --- |
 
                     """.trimIndent()
                 }
