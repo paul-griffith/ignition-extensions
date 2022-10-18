@@ -9,7 +9,6 @@ import com.inductiveautomation.ignition.common.util.DatasetBuilder
 import org.python.core.Py
 import org.python.core.PyFunction
 import org.python.core.PyObject
-import kotlin.math.max
 
 object DatasetExtensions {
     @Suppress("unused")
@@ -125,12 +124,15 @@ object DatasetExtensions {
 
     internal fun Appendable.printDataset(dataset: Dataset, separator: String = "|") {
         val columnWidths = dataset.columnIndices.associateWith { column ->
-            max(
-                dataset.rowIndices.maxOf { row ->
-                    dataset[row, column].toString().length
+            maxOf(
+                if (dataset.rowCount > 0) {
+                    dataset.rowIndices.maxOf { row -> dataset[row, column].toString().length }
+                } else {
+                    0
                 },
                 dataset.getColumnName(column).length,
-            ).coerceAtLeast(3)
+                3,
+            )
         }
 
         fun Sequence<String>.joinToBuffer() {
