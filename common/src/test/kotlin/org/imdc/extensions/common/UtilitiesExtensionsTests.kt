@@ -23,6 +23,10 @@ class UtilitiesExtensionsTests : JythonTest(
             test("Null input") {
                 eval<Any?>("utils.deepCopy(None)").shouldBeNull()
             }
+            test("String input") {
+                eval<String>("utils.deepCopy('abc')") shouldBe "abc"
+                eval<String>("utils.deepCopy(u'abc')") shouldBe "abc"
+            }
             context("Simple conversions") {
                 test("List") {
                     eval<PyList>("utils.deepCopy([1, 2, 3])") shouldBe listOf(1, 2, 3)

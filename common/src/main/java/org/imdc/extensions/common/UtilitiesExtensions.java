@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -27,6 +26,7 @@ import com.inductiveautomation.ignition.common.tags.paths.parser.TagPathParser;
 import org.apache.commons.lang3.tuple.Pair;
 import org.jetbrains.annotations.NotNull;
 import org.python.core.Py;
+import org.python.core.PyBaseString;
 import org.python.core.PyException;
 import org.python.core.PyList;
 import org.python.core.PyObject;
@@ -50,11 +50,9 @@ public class UtilitiesExtensions {
     @KeywordArgs(names = {"object"}, types = {PyObject.class})
     public PyObject deepCopy(PyObject[] args, String[] keywords) {
         PyArgParser parsedArgs = PyArgParser.parseArgs(args, keywords, this.getClass(), "deepCopy");
-        Optional<PyObject> maybeObject = parsedArgs.getPyObject("object");
-        if (maybeObject.isEmpty()) {
-            throw Py.TypeError("Deepcopy requires one argument, got none");
-        }
-        return recursiveConvert(maybeObject.get());
+        var toConvert = parsedArgs.getPyObject("object")
+            .orElseThrow(() -> Py.TypeError("deepCopy requires one argument, got none"));
+        return recursiveConvert(toConvert);
     }
 
     private static PyObject recursiveConvert(@NotNull PyObject object) {
@@ -65,6 +63,8 @@ public class UtilitiesExtensions {
             return PyUtilities.stream(object)
                 .map(UtilitiesExtensions::recursiveConvert)
                 .collect(PyUtilities.toPyList());
+        } else if (object instanceof PyBaseString) {
+            return object;
         } else {
             try {
                 Iterable<PyObject> iterable = object.asIterable();
