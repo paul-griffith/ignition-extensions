@@ -2,9 +2,11 @@ package org.imdc.extensions.common
 
 import com.inductiveautomation.ignition.common.BundleUtil
 import com.inductiveautomation.ignition.common.Dataset
+import com.inductiveautomation.ignition.common.PyUtilities
 import org.python.core.Py
 import org.python.core.PyObject
 import java.lang.reflect.Method
+import kotlin.streams.asSequence
 
 class PyObjectAppendable(target: PyObject) : Appendable {
     private val writeMethod = target.__getattr__("write")
@@ -53,3 +55,12 @@ inline fun <reified T> BundleUtil.addPropertyBundle() {
 inline fun <reified T : Annotation> Method.getAnnotation(): T? {
     return getAnnotation(T::class.java)
 }
+
+val PyObject.isSequence
+    get() = PyUtilities.isSequence(this)
+val PyObject.isString
+    get() = PyUtilities.isString(this)
+
+fun PyObject.asSequence(): Sequence<PyObject> = PyUtilities.stream(this).asSequence()
+fun PyObject.asEntriesSequence(): Sequence<Pair<PyObject, PyObject>> =
+    PyUtilities.streamEntries(this).map { (key, value) -> key to value }.asSequence()
