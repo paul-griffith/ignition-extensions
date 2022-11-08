@@ -2,7 +2,6 @@
 plugins {
     alias(libs.plugins.kotlin)
     alias(libs.plugins.modl)
-    // alias(libs.plugins.dokka) TODO: Investigate Dokka for automatic generation of module docs
 }
 
 subprojects {
@@ -19,16 +18,16 @@ ignitionModule {
     license.set("LICENSE.md")
     requiredIgnitionVersion.set(libs.versions.ignition.get())
 
-    projectScopes.putAll(
+    projectScopes.set(
         mapOf(
-            ":client" to "C",
-            ":common" to "GDC",
-            ":designer" to "D",
-            ":gateway" to "G",
+            projects.client.name to "C",
+            projects.common.name to "GDC",
+            projects.designer.name to "D",
+            projects.gateway.name to "G",
         ),
     )
 
-    hooks.putAll(
+    hooks.set(
         mapOf(
             "org.imdc.extensions.gateway.GatewayHook" to "G",
             "org.imdc.extensions.designer.DesignerHook" to "D",

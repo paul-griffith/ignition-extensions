@@ -1,15 +1,12 @@
 [versions]
 java = "11"
-kotlin = "1.7.20"
 kotest = "5.4.1"
 ignition = "8.1.0"
 
 [plugins]
-kotlin = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
-#serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+kotlin = { id = "org.jetbrains.kotlin.jvm", version = "1.7.20" }
 modl = { id = "io.ia.sdk.modl", version = "0.1.1" }
 ktlint = { id = "org.jlleitschuh.gradle.ktlint", version = "11.0.0" }
-dokka = { id = "org.jetbrains.dokka", version.ref = "kotlin" }
 
 [libraries]
 ignition-common = { group = "com.inductiveautomation.ignitionsdk", name = "ignition-common", version.ref = "ignition" }
@@ -27,15 +24,12 @@ mockk = { group = "io.mockk", name = "mockk", version = "1.13.1" }
 
 [bundles]
 gateway = [
-    "ignition-common",
     "ignition-gateway-api",
 ]
 designer = [
-    "ignition-common",
     "ignition-designer-api",
 ]
 client = [
-    "ignition-common",
     "ignition-client-api",
     "ignition-vision-client-api",
 ]
