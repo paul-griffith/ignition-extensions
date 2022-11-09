@@ -17,6 +17,12 @@ import org.python.core.PyDictionary
 import org.python.core.PyException
 import org.python.core.PyList
 import org.python.core.PyObject
+import org.python.core.PyStringMap
+import java.io.File
+import java.io.InputStream
+import java.io.OutputStream
+import java.util.Date
+import java.util.Optional
 import java.util.concurrent.TimeUnit
 
 class UtilitiesExtensions(
@@ -71,6 +77,26 @@ class UtilitiesExtensions(
         override fun getFunctionFactory(): FunctionFactory = context.expressionFunctionFactory
     }
 
+    fun launch(args: Array<PyObject>, keywords: Array<String>): ProcessWrapper {
+        val command: List<String> = emptyList()
+        val environment: Map<String, String?> = emptyMap()
+        val workDir: String? = null
+
+        return ProcessBuilder(command).run {
+            directory(workDir?.let(::File))
+            environment().apply {
+                for ((key, value) in environment) {
+                    if (value == null) {
+                        remove(key)
+                    } else {
+                        put(key, value)
+                    }
+                }
+            }
+            start()
+        }.let(::ProcessWrapper)
+    }
+
     companion object {
         private val EXPRESSION_PARSER = ELParserHarness()
 
@@ -94,5 +120,59 @@ class UtilitiesExtensions(
                 this
             }
         }
+    }
+}
+
+class ProcessWrapper(
+    val process: Process,
+) {
+    val inputStream: OutputStream by process::outputStream
+    val outputStream: InputStream by process::inputStream
+    val errorStream: InputStream by process::errorStream
+
+    val outputBytes by lazy { outputStream.readBytes() }
+    val stdout by lazy { outputBytes.decodeToString() }
+
+    val errorBytes by lazy { errorStream.readBytes() }
+    val stderr by lazy { errorBytes.decodeToString() }
+
+    val isAlive: Boolean
+        get() = process.isAlive
+    val exitValue: Int
+        get() = process.exitValue()
+    val pid: Long
+        get() = process.pid()
+
+    val info: PyStringMap
+        get() = process.info().let { info ->
+            fun Optional<out Any>.toPy(): PyObject {
+                return this.map(Py::java2py).orElse(Py.None)
+            }
+
+            PyStringMap(
+                mutableMapOf<Any, PyObject>(
+                    "command" to info.command().toPy(),
+                    "commandLine" to info.commandLine().toPy(),
+                    "arguments" to info.arguments().toPy(),
+                    "startTime" to info.startInstant().map { Date(it.toEpochMilli()) }.toPy(),
+                    "totalCpuDuration" to info.totalCpuDuration().map { it.toMillis() }.toPy(),
+                    "user" to info.user().toPy(),
+                ),
+            )
+        }
+
+    fun destroy(force: Boolean = false) {
+        if (force) {
+            process.destroyForcibly()
+        } else {
+            process.destroy()
+        }
+    }
+
+    fun waitFor(waitTime: Long = -1): Int {
+        if (waitTime > 0) {
+            process.waitFor(waitTime, TimeUnit.MILLISECONDS)
+        }
+        return process.waitFor()
     }
 }
