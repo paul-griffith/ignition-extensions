@@ -7,6 +7,7 @@ import com.inductiveautomation.ignition.common.script.builtin.KeywordArgs
 import com.inductiveautomation.ignition.common.script.hints.ScriptArg
 import com.inductiveautomation.ignition.common.script.hints.ScriptFunction
 import com.inductiveautomation.ignition.common.util.DatasetBuilder
+import com.inductiveautomation.ignition.common.xmlserialization.ClassNameResolver
 import org.apache.poi.ss.usermodel.CellType.BOOLEAN
 import org.apache.poi.ss.usermodel.CellType.FORMULA
 import org.apache.poi.ss.usermodel.CellType.NUMERIC
@@ -14,8 +15,16 @@ import org.apache.poi.ss.usermodel.CellType.STRING
 import org.apache.poi.ss.usermodel.DateUtil
 import org.apache.poi.ss.usermodel.WorkbookFactory
 import org.python.core.Py
+import org.python.core.PyBaseString
+import org.python.core.PyBoolean
+import org.python.core.PyFloat
 import org.python.core.PyFunction
+import org.python.core.PyInteger
+import org.python.core.PyLong
 import org.python.core.PyObject
+import org.python.core.PyString
+import org.python.core.PyType
+import org.python.core.PyUnicode
 import java.io.File
 import java.math.BigDecimal
 import java.util.Date
@@ -404,5 +413,36 @@ object DatasetExtensions {
         return columnTypes.all { (left, right) ->
             left == right
         }
+    }
+
+    private val classNameResolver = ClassNameResolver.createBasic()
+
+    @ScriptFunction(docBundlePrefix = "DatasetExtensions")
+    @KeywordArgs(
+        names = ["**columns"],
+        types = [KeywordArgs::class],
+    )
+    fun builder(args: Array<PyObject>, keywords: Array<String>): DatasetBuilder {
+        if (args.size != keywords.size) throw Py.ValueError("builder must be called with only keyword arguments")
+        val colNames = keywords.toList()
+        val colTypes = args.mapIndexed { i, type ->
+            try {
+                type.asJavaClass()
+            } catch (e: ClassCastException) {
+                throw Py.TypeError("${keywords[i]} was a ${type::class.simpleName}, but should be a type or valid string typecode")
+            }
+        }
+        return DatasetBuilder.newBuilder().colNames(colNames).colTypes(colTypes)
+    }
+
+    fun PyObject.asJavaClass(): Class<*>? = when (this) {
+        is PyBaseString -> classNameResolver.classForName(asString())
+        !is PyType -> throw ClassCastException()
+        PyString.TYPE, PyUnicode.TYPE -> String::class.java
+        PyBoolean.TYPE -> Boolean::class.java
+        PyInteger.TYPE -> Int::class.java
+        PyLong.TYPE -> Long::class.java
+        PyFloat.TYPE -> Double::class.java
+        else -> toJava<Class<*>>()
     }
 }
