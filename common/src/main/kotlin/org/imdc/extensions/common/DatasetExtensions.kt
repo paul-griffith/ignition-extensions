@@ -1,6 +1,7 @@
 package org.imdc.extensions.common
 
 import com.inductiveautomation.ignition.common.Dataset
+import com.inductiveautomation.ignition.common.PyUtilities
 import com.inductiveautomation.ignition.common.TypeUtilities
 import com.inductiveautomation.ignition.common.script.PyArgParser
 import com.inductiveautomation.ignition.common.script.builtin.KeywordArgs
@@ -8,10 +9,8 @@ import com.inductiveautomation.ignition.common.script.hints.ScriptArg
 import com.inductiveautomation.ignition.common.script.hints.ScriptFunction
 import com.inductiveautomation.ignition.common.util.DatasetBuilder
 import com.inductiveautomation.ignition.common.xmlserialization.ClassNameResolver
-import org.apache.poi.ss.usermodel.CellType.BOOLEAN
-import org.apache.poi.ss.usermodel.CellType.FORMULA
-import org.apache.poi.ss.usermodel.CellType.NUMERIC
-import org.apache.poi.ss.usermodel.CellType.STRING
+import org.apache.poi.ss.usermodel.Cell
+import org.apache.poi.ss.usermodel.CellType
 import org.apache.poi.ss.usermodel.DateUtil
 import org.apache.poi.ss.usermodel.WorkbookFactory
 import org.python.core.Py
@@ -20,15 +19,19 @@ import org.python.core.PyBoolean
 import org.python.core.PyFloat
 import org.python.core.PyFunction
 import org.python.core.PyInteger
+import org.python.core.PyList
 import org.python.core.PyLong
 import org.python.core.PyObject
 import org.python.core.PyString
+import org.python.core.PyStringMap
 import org.python.core.PyType
 import org.python.core.PyUnicode
 import java.io.File
 import java.math.BigDecimal
 import java.util.Date
+import kotlin.jvm.optionals.getOrElse
 import kotlin.math.max
+import kotlin.streams.asSequence
 
 object DatasetExtensions {
     @Suppress("unused")
@@ -220,8 +223,40 @@ object DatasetExtensions {
     @Suppress("unused")
     @ScriptFunction(docBundlePrefix = "DatasetExtensions")
     @KeywordArgs(
-        names = ["input", "headerRow", "sheetNumber", "firstRow", "lastRow", "firstColumn", "lastColumn"],
-        types = [ByteArray::class, Integer::class, Integer::class, Integer::class, Integer::class, Integer::class, Integer::class],
+        names = ["dataset", "filterNull"],
+        types = [Dataset::class, Boolean::class],
+    )
+    fun toDict(args: Array<PyObject>, keywords: Array<String>): PyStringMap {
+        val parsedArgs = PyArgParser.parseArgs(
+            args,
+            keywords,
+            arrayOf("dataset", "filterNull"),
+            Array(2) { Any::class.java },
+            "toDict",
+        )
+        val dataset = parsedArgs.requirePyObject("dataset").toJava<Dataset>()
+        val filterNull = parsedArgs.getBoolean("filterNull").orElse(false)
+        return PyStringMap(
+            dataset.columnIndices.associate { col ->
+                dataset.getColumnName(col) to PyList(
+                    buildList {
+                        for (row in dataset.rowIndices) {
+                            val value = dataset[row, col]
+                            if (value != null || !filterNull) {
+                                add(value)
+                            }
+                        }
+                    },
+                )
+            },
+        )
+    }
+
+    @Suppress("unused")
+    @ScriptFunction(docBundlePrefix = "DatasetExtensions")
+    @KeywordArgs(
+        names = ["input", "headerRow", "sheetNumber", "firstRow", "lastRow", "firstColumn", "lastColumn", "typeOverrides"],
+        types = [ByteArray::class, Int::class, Int::class, Int::class, Int::class, Int::class, Int::class, PyStringMap::class],
     )
     fun fromExcel(args: Array<PyObject>, keywords: Array<String>): Dataset {
         val parsedArgs = PyArgParser.parseArgs(
@@ -235,10 +270,19 @@ object DatasetExtensions {
                 "lastRow",
                 "firstColumn",
                 "lastColumn",
+                "typeOverrides",
             ),
-            Array(7) { Any::class.java },
+            Array(8) { Any::class.java },
             "fromExcel",
         )
+
+        val typeOverrides = parsedArgs.getPyObject("typeOverrides")
+            .map(PyUtilities::streamEntries)
+            .map { stream ->
+                stream.asSequence().associate { (pyKey, value) ->
+                    pyKey.asIndex() to value.asJavaClass()
+                }
+            }.getOrElse { emptyMap() }
 
         when (val input = parsedArgs.requirePyObject("input").toJava<Any>()) {
             is String -> WorkbookFactory.create(File(input))
@@ -262,7 +306,8 @@ object DatasetExtensions {
             }
 
             val columnRow = sheet.getRow(if (headerRow >= 0) headerRow else firstRow)
-            val firstColumn = parsedArgs.getInteger("firstColumn").orElseGet { columnRow.firstCellNum.toInt() }
+            val firstColumn =
+                parsedArgs.getInteger("firstColumn").orElseGet { columnRow.firstCellNum.toInt() }
             val lastColumn =
                 parsedArgs.getInteger("lastColumn").map { it + 1 }.orElseGet { columnRow.lastCellNum.toInt() }
             if (firstColumn >= lastColumn) {
@@ -292,11 +337,11 @@ object DatasetExtensions {
 
                 val row = sheet.getRow(i)
 
-                val rowValues = Array<Any?>(columnCount) { j ->
-                    val cell = row.getCell(j + firstColumn)
+                val rowValues = Array(columnCount) { j ->
+                    val cell: Cell? = row.getCell(j + firstColumn)
 
-                    when (cell?.cellType.takeUnless { it == FORMULA } ?: cell.cachedFormulaResultType) {
-                        NUMERIC -> {
+                    val actualValue: Any? = when (cell?.cellType) {
+                        CellType.NUMERIC -> {
                             if (DateUtil.isCellDateFormatted(cell)) {
                                 if (!typesSet) {
                                     columnTypes.add(Date::class.java)
@@ -318,14 +363,14 @@ object DatasetExtensions {
                             }
                         }
 
-                        STRING -> {
+                        CellType.STRING -> {
                             if (!typesSet) {
                                 columnTypes.add(String::class.java)
                             }
                             cell.stringCellValue
                         }
 
-                        BOOLEAN -> {
+                        CellType.BOOLEAN -> {
                             if (!typesSet) {
                                 columnTypes.add(Boolean::class.javaObjectType)
                             }
@@ -338,6 +383,19 @@ object DatasetExtensions {
                             }
                             null
                         }
+                    }
+                    val typeOverride = typeOverrides[j]
+                    if (typeOverride != null) {
+                        if (!typesSet) {
+                            columnTypes[j] = typeOverride
+                        }
+                        try {
+                            TypeUtilities.coerceGeneric(actualValue, typeOverride)
+                        } catch (e: ClassCastException) {
+                            throw Py.TypeError(e.message)
+                        }
+                    } else {
+                        actualValue
                     }
                 }
 
@@ -415,8 +473,6 @@ object DatasetExtensions {
         }
     }
 
-    private val classNameResolver = ClassNameResolver.createBasic()
-
     @ScriptFunction(docBundlePrefix = "DatasetExtensions")
     @KeywordArgs(
         names = ["**columns"],
@@ -435,7 +491,9 @@ object DatasetExtensions {
         return DatasetBuilder.newBuilder().colNames(colNames).colTypes(colTypes)
     }
 
-    fun PyObject.asJavaClass(): Class<*>? = when (this) {
+    private val classNameResolver = ClassNameResolver.createBasic()
+
+    internal fun PyObject.asJavaClass(): Class<*>? = when (this) {
         is PyBaseString -> classNameResolver.classForName(asString())
         !is PyType -> throw ClassCastException()
         PyString.TYPE, PyUnicode.TYPE -> String::class.java

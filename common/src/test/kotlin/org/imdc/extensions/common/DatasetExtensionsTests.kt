@@ -4,13 +4,12 @@ import com.inductiveautomation.ignition.common.BasicDataset
 import com.inductiveautomation.ignition.common.Dataset
 import com.inductiveautomation.ignition.common.util.DatasetBuilder
 import io.kotest.assertions.withClue
+import io.kotest.engine.spec.tempfile
 import io.kotest.matchers.shouldBe
 import org.imdc.extensions.common.DatasetExtensions.printDataset
 import org.python.core.Py
 import java.awt.Color
 import java.util.Date
-import kotlin.io.path.createTempFile
-import kotlin.io.path.writeBytes
 
 @Suppress("PyUnresolvedReferences", "PyInterpreter")
 class DatasetExtensionsTests : JythonTest(
@@ -26,18 +25,24 @@ class DatasetExtensionsTests : JythonTest(
 
         val excelSample =
             DatasetExtensionsTests::class.java.getResourceAsStream("sample.xlsx")!!.readAllBytes()
-        val tempXlsx = createTempFile(suffix = "xlsx").also {
+        val tempXlsx = tempfile(suffix = "xlsx").also {
             it.writeBytes(excelSample)
-            it.toFile().deleteOnExit()
         }
         globals["xlsxBytes"] = excelSample
         globals["xlsxFile"] = tempXlsx.toString()
 
+        val excelSample2 =
+            DatasetExtensionsTests::class.java.getResourceAsStream("sample2.xlsx")!!.readAllBytes()
+        val tempXlsx2 = tempfile(suffix = "xlsx").also {
+            it.writeBytes(excelSample2)
+        }
+        globals["xlsxFile2"] = tempXlsx2.toString()
+        globals["xlsxBytes2"] = excelSample2
+
         val xlsSample =
             DatasetExtensionsTests::class.java.getResourceAsStream("sample.xls")!!.readAllBytes()
-        val tempXls = createTempFile(suffix = "xls").also {
+        val tempXls = tempfile(suffix = "xls").also {
             it.writeBytes(xlsSample)
-            it.toFile().deleteOnExit()
         }
         globals["xlsBytes"] = xlsSample
         globals["xlsFile"] = tempXls.toString()
@@ -236,6 +241,48 @@ class DatasetExtensionsTests : JythonTest(
                         "Month Number",
                         "Month Name",
                         "Year",
+                    )
+                }
+            }
+            test("With String Override") {
+                eval<Dataset>("utils.fromExcel(xlsxBytes2, headerRow=0, typeOverrides={2: 'str', 4: 'str'})").asClue {
+                    it.rowCount shouldBe 99
+                    it.columnCount shouldBe 16
+                    it.columnNames shouldBe listOf(
+                        "Segment",
+                        "Country",
+                        "Product",
+                        "Discount Band",
+                        "Units Sold",
+                        "Manufacturing Price",
+                        "Sale Price",
+                        "Gross Sales",
+                        "Discounts",
+                        "Sales",
+                        "COGS",
+                        "Profit",
+                        "Date",
+                        "Month Number",
+                        "Month Name",
+                        "Year",
+                    )
+                    it.columnTypes shouldBe listOf(
+                        String::class.java,
+                        Any::class.java,
+                        String::class.java,
+                        String::class.java,
+                        String::class.java,
+                        Int::class.javaObjectType,
+                        Int::class.javaObjectType,
+                        Int::class.javaObjectType,
+                        Int::class.javaObjectType,
+                        Int::class.javaObjectType,
+                        Int::class.javaObjectType,
+                        Int::class.javaObjectType,
+                        Date::class.java,
+                        Int::class.javaObjectType,
+                        String::class.java,
+                        String::class.java,
                     )
                 }
             }
