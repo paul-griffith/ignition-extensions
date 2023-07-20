@@ -91,6 +91,9 @@ object DatasetExtensions {
         val rightDataset = parsedArgs.requirePyObject("rightDataset").toJava<Dataset>()
         val joinOn = parsedArgs.requirePyObject("joinOn") as PyFunction
 
+        val leftColumnCount = leftDataset.columnCount
+        val rightColumnCount = rightDataset.columnCount
+
         val leftColumnNames = leftDataset.columnNames.toList()
         val rightColumnNames = rightDataset.columnNames.toList()
         val combinedColumnNames = leftColumnNames + rightColumnNames
@@ -104,43 +107,34 @@ object DatasetExtensions {
             .colTypes(combinedColumnTypes)
 
         for (leftRow in leftDataset.rowIndices) {
-            var rowMatched = false // To track if a row from leftDataset has any matching rows in rightDataset
             var matchingRow = -1
+            val leftRowValues = Array<Any?>(leftColumnCount) { col ->
+                leftDataset[leftRow, col]
+            }
+
             for (rightRow in rightDataset.rowIndices) {
-                // Compare the values in each row of the left and right datasets based on the given columns
-                val leftRowValues = Array<Any?>(leftDataset.columnCount) { col ->
-                    leftDataset[leftRow, col]
-                }
-                val rightRowValues = Array<Any?>(rightDataset.columnCount) { col ->
+                val rightRowValues = Array<Any?>(rightColumnCount) { col ->
                     rightDataset[rightRow, col]
                 }
 
-                rowMatched = joinOn.__call__(Py.java2py(leftRowValues), Py.java2py(rightRowValues)).toJava()
-                if (rowMatched) {
+                if (joinOn.__call__(Py.java2py(leftRowValues), Py.java2py(rightRowValues)).toJava()) {
                     matchingRow = rightRow
                     break
                 }
             }
-            if (!rowMatched) {
-                // If no match found for the left row, add it with null values for right dataset columns
-                val leftRowValues = Array<Any?>(leftDataset.columnCount) { col ->
-                    leftDataset[leftRow, col]
-                }
-                val rightRowValues = Array<Any?>(rightDataset.columnCount) { null }
-                val totalArray = leftRowValues.toMutableList() + rightRowValues.toMutableList()
-                builder.addRow(*totalArray.toTypedArray())
-            } else {
-                // If match found for the left row, add it with values for right dataset columns
-                val leftRowValues = Array<Any?>(leftDataset.columnCount) { col ->
-                    leftDataset[leftRow, col]
-                }
-                val rightRowValues = Array<Any?>(rightDataset.columnCount) { col ->
+
+            val rightRowValues = if (matchingRow != -1) {
+                Array<Any?>(rightColumnCount) { col ->
                     rightDataset[matchingRow, col]
                 }
-                val totalArray = leftRowValues.toMutableList() + rightRowValues.toMutableList()
-                builder.addRow(*totalArray.toTypedArray())
+            } else {
+                Array<Any?>(rightColumnCount) { null }
             }
+
+            val totalArray = leftRowValues.toMutableList() + rightRowValues.toMutableList()
+            builder.addRow(*totalArray.toTypedArray())
         }
+
         return builder.build()
     }
 
