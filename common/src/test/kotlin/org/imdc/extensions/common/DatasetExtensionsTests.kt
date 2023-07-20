@@ -146,7 +146,7 @@ class DatasetExtensionsTests : JythonTest(
 
         context("Left Join test") {
             test("Left Join") {
-                eval<Dataset>("utils.leftJoin(dataset, dataset2, 0, 0)").asClue {
+                eval<Dataset>("utils.leftJoin(dataset, dataset2, lambda d1, d2: (d1[0] == d2[0]))").asClue {
                     it.columnNames shouldBe listOf("a", "b", "c", "a", "b2", "c2")
                     it.columnTypes shouldBe listOf(
                         Int::class.javaObjectType,
