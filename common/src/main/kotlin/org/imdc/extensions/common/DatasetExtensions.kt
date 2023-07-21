@@ -76,21 +76,42 @@ object DatasetExtensions {
     @Suppress("unused")
     @ScriptFunction(docBundlePrefix = "DatasetExtensions")
     @KeywordArgs(
-        names = ["leftDataset", "rightDataset", "joinOn"],
-        types = [Dataset::class, Dataset::class, PyObject::class],
+        names = ["leftDataset", "rightDataset", "joinType", "joinOn"],
+        types = [Dataset::class, Dataset::class, String::class, PyObject::class],
     )
-    fun leftJoin(args: Array<PyObject>, keywords: Array<String>): Dataset? {
+    fun joiner(args: Array<PyObject>, keywords: Array<String>): Dataset? {
         val parsedArgs = PyArgParser.parseArgs(
             args,
             keywords,
-            arrayOf("leftDataset", "rightDataset", "joinOn"),
-            arrayOf(Dataset::class.java, Dataset::class.java, PyObject::class.java),
-            "leftJoin",
+            arrayOf("leftDataset", "rightDataset", "joinType", "joinOn"),
+            arrayOf(Dataset::class.java, Dataset::class.java, String::class.java, PyObject::class.java),
+            "joiner",
         )
         val leftDataset = parsedArgs.requirePyObject("leftDataset").toJava<Dataset>()
         val rightDataset = parsedArgs.requirePyObject("rightDataset").toJava<Dataset>()
+        val joinType = parsedArgs.requirePyObject("joinType").toJava<String>()
         val joinOn = parsedArgs.requirePyObject("joinOn") as PyFunction
+        return when (joinType) {
+            "left" -> {
+                leftJoin(leftDataset, rightDataset, joinOn)
+            }
+            "right" -> {
+                rightJoin(leftDataset, rightDataset, joinOn)
+            }
+            "inner" -> {
+                innerJoin(leftDataset, rightDataset, joinOn)
+            }
+            "outer" -> {
+                outerJoin(leftDataset, rightDataset, joinOn)
+            }
+            else -> {
+                throw Py.ValueError("joinType must be one of 'left', 'right', 'inner', or 'outer'")
+            }
+        }
+    }
 
+    @Suppress("unused")
+    private fun leftJoin(leftDataset: Dataset, rightDataset: Dataset, joinOn: PyFunction): Dataset? {
         val leftColumnCount = leftDataset.columnCount
         val rightColumnCount = rightDataset.columnCount
 
@@ -108,12 +129,12 @@ object DatasetExtensions {
 
         for (leftRow in leftDataset.rowIndices) {
             var matchingRow = -1
-            val leftRowValues = Array<Any?>(leftColumnCount) { col ->
+            val leftRowValues = Array(leftColumnCount) { col ->
                 leftDataset[leftRow, col]
             }
 
             for (rightRow in rightDataset.rowIndices) {
-                val rightRowValues = Array<Any?>(rightColumnCount) { col ->
+                val rightRowValues = Array(rightColumnCount) { col ->
                     rightDataset[rightRow, col]
                 }
 
@@ -124,7 +145,7 @@ object DatasetExtensions {
             }
 
             val rightRowValues = if (matchingRow != -1) {
-                Array<Any?>(rightColumnCount) { col ->
+                Array(rightColumnCount) { col ->
                     rightDataset[matchingRow, col]
                 }
             } else {
@@ -138,194 +159,157 @@ object DatasetExtensions {
         return builder.build()
     }
 
-    @Suppress("unused")
-    @ScriptFunction(docBundlePrefix = "DatasetExtensions")
-    @KeywordArgs(
-        names = ["dataset", "dataset2", "columnIndex", "columnIndex2"],
-        types = [Dataset::class, Dataset::class, Int::class, Int::class],
-    )
-    fun innerJoin(args: Array<PyObject>, keywords: Array<String>): Dataset? {
-        val parsedArgs = PyArgParser.parseArgs(
-            args,
-            keywords,
-            arrayOf("dataset", "dataset2", "columnIndex", "columnIndex2"),
-            arrayOf(Dataset::class.java, Dataset::class.java, Int::class.java, Int::class.java),
-            "innerJoin",
-        )
-        val dataset = parsedArgs.requirePyObject("dataset").toJava<Dataset>()
-        val dataset2 = parsedArgs.requirePyObject("dataset2").toJava<Dataset>()
-        val column = parsedArgs.requirePyObject("columnIndex").toJava<Int>()
-        val column2 = parsedArgs.requirePyObject("columnIndex2").toJava<Int>()
+    private fun rightJoin(leftDataset: Dataset, rightDataset: Dataset, joinOn: PyFunction): Dataset? {
+        val leftColumnCount = leftDataset.columnCount
+        val rightColumnCount = rightDataset.columnCount
 
-        val columnName = dataset.columnNames.toList()
-        val columnName2 = dataset2.columnNames.toList()
-        val combinedColumnName = columnName + columnName2
+        val leftColumnNames = leftDataset.columnNames.toList()
+        val rightColumnNames = rightDataset.columnNames.toList()
+        val combinedColumnNames = leftColumnNames + rightColumnNames
 
-        val columnType = dataset.columnTypes.toList()
-        val columnType2 = dataset2.columnTypes.toList()
-        val combinedColumnType = columnType + columnType2
+        val leftColumnTypes = leftDataset.columnTypes.toList()
+        val rightColumnTypes = rightDataset.columnTypes.toList()
+        val combinedColumnTypes = leftColumnTypes + rightColumnTypes
 
         val builder = DatasetBuilder.newBuilder()
-            .colNames(combinedColumnName)
-            .colTypes(combinedColumnType)
+            .colNames(combinedColumnNames)
+            .colTypes(combinedColumnTypes)
 
-        for (row in dataset.rowIndices) {
-            val listToAppend = arrayOfNulls<Any?>(combinedColumnName.size)
-            var row2: Int? = null
+        for (rightRow in rightDataset.rowIndices) {
+            var matchingRow = -1
+            val rightRowValues = Array(rightColumnCount) { col ->
+                rightDataset[rightRow, col]
+            }
 
-            dataset2.rowIndices.forEachIndexed { rowIndex, _ ->
-                if (dataset[row, column] == dataset2[rowIndex, column2]) {
-                    row2 = rowIndex
-                    return@forEachIndexed
+            for (leftRow in leftDataset.rowIndices) {
+                val leftRowValues = Array(leftColumnCount) { col ->
+                    leftDataset[leftRow, col]
+                }
+
+                if (joinOn.__call__(Py.java2py(leftRowValues), Py.java2py(rightRowValues)).toJava()) {
+                    matchingRow = rightRow
+                    break
                 }
             }
 
-            if (row2 != null) {
-                dataset.columnIndices.forEachIndexed { colIndex, _ ->
-                    listToAppend[colIndex] = dataset[row, colIndex]
+            val leftRowValues = if (matchingRow != -1) {
+                Array(leftColumnCount) { col ->
+                    leftDataset[matchingRow, col]
+                }
+            } else {
+                Array<Any?>(leftColumnCount) { null }
+            }
+
+            val totalArray = leftRowValues.toMutableList() + rightRowValues.toMutableList()
+            builder.addRow(*totalArray.toTypedArray())
+        }
+
+        return builder.build()
+    }
+
+    private fun innerJoin(leftDataset: Dataset, rightDataset: Dataset, joinOn: PyFunction): Dataset? {
+        val leftColumnCount = leftDataset.columnCount
+        val rightColumnCount = rightDataset.columnCount
+
+        val leftColumnNames = leftDataset.columnNames.toList()
+        val rightColumnNames = rightDataset.columnNames.toList()
+        val combinedColumnNames = leftColumnNames + rightColumnNames
+
+        val leftColumnTypes = leftDataset.columnTypes.toList()
+        val rightColumnTypes = rightDataset.columnTypes.toList()
+        val combinedColumnTypes = leftColumnTypes + rightColumnTypes
+
+        val builder = DatasetBuilder.newBuilder()
+            .colNames(combinedColumnNames)
+            .colTypes(combinedColumnTypes)
+
+        for (leftRow in leftDataset.rowIndices) {
+            val leftRowValues = Array(leftColumnCount) { col ->
+                leftDataset[leftRow, col]
+            }
+
+            for (rightRow in rightDataset.rowIndices) {
+                val rightRowValues = Array(rightColumnCount) { col ->
+                    rightDataset[rightRow, col]
                 }
 
-                dataset2.columnIndices.forEachIndexed { colIndex, _ ->
-                    listToAppend[dataset.columnCount + colIndex] = dataset2[row2!!, colIndex]
+                if (joinOn.__call__(Py.java2py(leftRowValues), Py.java2py(rightRowValues)).toJava()) {
+                    val totalArray = leftRowValues.toMutableList() + rightRowValues.toMutableList()
+                    builder.addRow(*totalArray.toTypedArray())
                 }
-
-                builder.addRow(*listToAppend)
             }
         }
 
         return builder.build()
     }
 
-    @Suppress("unused")
-    @ScriptFunction(docBundlePrefix = "DatasetExtensions")
-    @KeywordArgs(
-        names = ["dataset", "dataset2", "columnIndex", "columnIndex2"],
-        types = [Dataset::class, Dataset::class, Int::class, Int::class],
-    )
-    fun rightJoin(args: Array<PyObject>, keywords: Array<String>): Dataset? {
-        val parsedArgs = PyArgParser.parseArgs(
-            args,
-            keywords,
-            arrayOf("dataset", "dataset2", "columnIndex", "columnIndex2"),
-            arrayOf(Dataset::class.java, Dataset::class.java, Int::class.java, Int::class.java),
-            "rightJoin",
-        )
-        val dataset = parsedArgs.requirePyObject("dataset").toJava<Dataset>()
-        val dataset2 = parsedArgs.requirePyObject("dataset2").toJava<Dataset>()
-        val column = parsedArgs.requirePyObject("columnIndex").toJava<Int>()
-        val column2 = parsedArgs.requirePyObject("columnIndex2").toJava<Int>()
+    private fun outerJoin(leftDataset: Dataset, rightDataset: Dataset, joinOn: PyFunction): Dataset? {
+        val leftColumnCount = leftDataset.columnCount
+        val rightColumnCount = rightDataset.columnCount
 
-        val columnName = dataset.columnNames.toList()
-        val columnName2 = dataset2.columnNames.toList()
-        val combinedColumnName = columnName + columnName2
+        val leftColumnNames = leftDataset.columnNames.toList()
+        val rightColumnNames = rightDataset.columnNames.toList()
+        val combinedColumnNames = leftColumnNames + rightColumnNames
 
-        val columnType = dataset.columnTypes.toList()
-        val columnType2 = dataset2.columnTypes.toList()
-        val combinedColumnType = columnType + columnType2
+        val leftColumnTypes = leftDataset.columnTypes.toList()
+        val rightColumnTypes = rightDataset.columnTypes.toList()
+        val combinedColumnTypes = leftColumnTypes + rightColumnTypes
 
         val builder = DatasetBuilder.newBuilder()
-            .colNames(combinedColumnName)
-            .colTypes(combinedColumnType)
+            .colNames(combinedColumnNames)
+            .colTypes(combinedColumnTypes)
 
-        for (row in dataset2.rowIndices) {
-            val listToAppend = arrayOfNulls<Any?>(combinedColumnName.size)
-            var row2: Int? = null
+        for (leftRow in leftDataset.rowIndices) {
+            val leftRowValues = Array(leftColumnCount) { col ->
+                leftDataset[leftRow, col]
+            }
 
-            dataset.rowIndices.forEachIndexed { rowIndex, _ ->
-                if (dataset[rowIndex, column] == dataset2[row, column2]) {
-                    row2 = rowIndex
-                    return@forEachIndexed
+            var matched = false
+
+            for (rightRow in rightDataset.rowIndices) {
+                val rightRowValues = Array(rightColumnCount) { col ->
+                    rightDataset[rightRow, col]
+                }
+
+                if (joinOn.__call__(Py.java2py(leftRowValues), Py.java2py(rightRowValues)).toJava()) {
+                    matched = true
+                    val totalArray = leftRowValues.toMutableList() + rightRowValues.toMutableList()
+                    builder.addRow(*totalArray.toTypedArray())
                 }
             }
 
-            if (row2 != null) {
-                dataset.columnIndices.forEachIndexed { colIndex, _ ->
-                    listToAppend[colIndex] = dataset[row2!!, colIndex]
-                }
-
-                dataset2.columnIndices.forEachIndexed { colIndex, _ ->
-                    listToAppend[dataset.columnCount + colIndex] = dataset2[row, colIndex]
-                }
-
-                builder.addRow(*listToAppend)
+            if (!matched) {
+                // If no match found for the left row, add null values for the right dataset columns
+                val rightRowValues = Array<Any?>(rightColumnCount) { null }
+                val totalArray = leftRowValues.toMutableList() + rightRowValues.toMutableList()
+                builder.addRow(*totalArray.toTypedArray())
             }
         }
 
-        return builder.build()
-    }
+        // Add rows from the right dataset that don't have a match in the left dataset
+        for (rightRow in rightDataset.rowIndices) {
+            val rightRowValues = Array(rightColumnCount) { col ->
+                rightDataset[rightRow, col]
+            }
 
-    @Suppress("unused")
-    @ScriptFunction(docBundlePrefix = "DatasetExtensions")
-    @KeywordArgs(
-        names = ["dataset", "dataset2", "columnIndex", "columnIndex2"],
-        types = [Dataset::class, Dataset::class, Int::class, Int::class],
-    )
-    fun outerJoin(args: Array<PyObject>, keywords: Array<String>): Dataset? {
-        val parsedArgs = PyArgParser.parseArgs(
-            args,
-            keywords,
-            arrayOf("dataset", "dataset2", "columnIndex", "columnIndex2"),
-            arrayOf(Dataset::class.java, Dataset::class.java, Int::class.java, Int::class.java),
-            "outerJoin",
-        )
-        val dataset = parsedArgs.requirePyObject("dataset").toJava<Dataset>()
-        val dataset2 = parsedArgs.requirePyObject("dataset2").toJava<Dataset>()
-        val column = parsedArgs.requirePyObject("columnIndex").toJava<Int>()
-        val column2 = parsedArgs.requirePyObject("columnIndex2").toJava<Int>()
+            var matched = false
 
-        val columnName = dataset.columnNames.toList()
-        val columnName2 = dataset2.columnNames.toList()
-        val combinedColumnName = columnName + columnName2
+            for (leftRow in leftDataset.rowIndices) {
+                val leftRowValues = Array(leftColumnCount) { col ->
+                    leftDataset[leftRow, col]
+                }
 
-        val columnType = dataset.columnTypes.toList()
-        val columnType2 = dataset2.columnTypes.toList()
-        val combinedColumnType = columnType + columnType2
-
-        val builder = DatasetBuilder.newBuilder()
-            .colNames(combinedColumnName)
-            .colTypes(combinedColumnType)
-
-        for (row in dataset.rowIndices) {
-            val listToAppend = arrayOfNulls<Any?>(combinedColumnName.size)
-            var row2: Int? = null
-
-            dataset2.rowIndices.forEachIndexed { rowIndex, _ ->
-                if (dataset[row, column] == dataset2[rowIndex, column2]) {
-                    row2 = rowIndex
-                    return@forEachIndexed
+                if (joinOn.__call__(Py.java2py(leftRowValues), Py.java2py(rightRowValues)).toJava()) {
+                    matched = true
+                    break
                 }
             }
 
-            dataset.columnIndices.forEachIndexed { colIndex, _ ->
-                listToAppend[colIndex] = dataset[row, colIndex]
-            }
-
-            row2?.let { r2 ->
-                dataset2.columnIndices.forEachIndexed { colIndex, _ ->
-                    listToAppend[dataset.columnCount + colIndex] = dataset2[r2, colIndex]
-                }
-            }
-
-            builder.addRow(*listToAppend)
-        }
-
-        // Add unmatched rows from dataset2
-        for (row2 in dataset2.rowIndices) {
-            val listToAppend = arrayOfNulls<Any?>(combinedColumnName.size)
-            var row1: Int? = null
-
-            dataset.rowIndices.forEachIndexed { rowIndex, _ ->
-                if (dataset[rowIndex, column] == dataset2[row2, column2]) {
-                    row1 = rowIndex
-                    return@forEachIndexed
-                }
-            }
-
-            if (row1 == null) {
-                dataset2.columnIndices.forEachIndexed { colIndex, _ ->
-                    listToAppend[dataset.columnCount + colIndex] = dataset2[row2, colIndex]
-                }
-                builder.addRow(*listToAppend)
+            if (!matched) {
+                // If no match found for the right row, add null values for the left dataset columns
+                val leftRowValues = Array<Any?>(leftColumnCount) { null }
+                val totalArray = leftRowValues.toMutableList() + rightRowValues.toMutableList()
+                builder.addRow(*totalArray.toTypedArray())
             }
         }
 

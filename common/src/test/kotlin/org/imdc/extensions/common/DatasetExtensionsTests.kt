@@ -146,7 +146,7 @@ class DatasetExtensionsTests : JythonTest(
 
         context("Left Join test") {
             test("Left Join") {
-                eval<Dataset>("utils.leftJoin(dataset, dataset2, lambda d1, d2: (d1[0] == d2[0]))").asClue {
+                eval<Dataset>("utils.joiner(dataset, dataset2, 'left', lambda d1, d2: (d1[0] == d2[0]))").asClue {
                     it.columnNames shouldBe listOf("a", "b", "c", "a", "b2", "c2")
                     it.columnTypes shouldBe listOf(
                         Int::class.javaObjectType,
@@ -167,29 +167,9 @@ class DatasetExtensionsTests : JythonTest(
             }
         }
 
-        // https://www.sqlshack.com/sql-outer-join-overview-and-examples/
-        context("Outer Join test") {
-            test("Outer Join") {
-                eval<Dataset>("utils.outerJoin(outerJoin1, outerJoin2, 0, 0)").asClue {
-                    it.columnNames shouldBe listOf("EmpID", "EmpName", "City", "Designation", "EmpID", "Department_ID", "DepartmentName")
-                    it.columnTypes shouldBe listOf(
-                        Int::class.javaObjectType,
-                        String::class.java,
-                        String::class.java,
-                        String::class.java,
-                        Int::class.javaObjectType,
-                        Int::class.javaObjectType,
-                        String::class.java,
-                    )
-                    it.getColumnAsList(6) shouldBe listOf("Executive", "Document Control", "Finance", "Engineering", "Facilities and Maintenance", "Finance", null, null, null, "Facilities and Maintenance")
-                    it.rowCount shouldBe 10
-                }
-            }
-        }
-
         context("Right Join test") {
             test("Right Join") {
-                eval<Dataset>("utils.rightJoin(outerJoin1, outerJoin2, 0, 0)").asClue {
+                eval<Dataset>("utils.joiner(outerJoin1, outerJoin2, 'right', lambda d1, d2: (d1[0] == d2[0]))").asClue {
                     it.columnNames shouldBe listOf("EmpID", "EmpName", "City", "Designation", "EmpID", "Department_ID", "DepartmentName")
                     it.columnTypes shouldBe listOf(
                         Int::class.javaObjectType,
@@ -206,9 +186,29 @@ class DatasetExtensionsTests : JythonTest(
             }
         }
 
+        // https://www.sqlshack.com/sql-outer-join-overview-and-examples/
+        context("Outer Join test") {
+            test("Outer Join") {
+                eval<Dataset>("utils.joiner(outerJoin1, outerJoin2, 'outer', lambda d1, d2: (d1[0] == d2[0]))").asClue {
+                    it.columnNames shouldBe listOf("EmpID", "EmpName", "City", "Designation", "EmpID", "Department_ID", "DepartmentName")
+                    it.columnTypes shouldBe listOf(
+                        Int::class.javaObjectType,
+                        String::class.java,
+                        String::class.java,
+                        String::class.java,
+                        Int::class.javaObjectType,
+                        Int::class.javaObjectType,
+                        String::class.java,
+                    )
+                    it.getColumnAsList(6) shouldBe listOf("Executive", "Document Control", "Finance", "Engineering", "Facilities and Maintenance", "Finance", null, null, null, "Facilities and Maintenance")
+                    it.rowCount shouldBe 10
+                }
+            }
+        }
+
         context("Inner Join test") {
             test("Inner Join") {
-                eval<Dataset>("utils.innerJoin(outerJoin1, outerJoin2, 0, 0)").asClue {
+                eval<Dataset>("utils.joiner(outerJoin1, outerJoin2, 'inner', lambda d1, d2: (d1[0] == d2[0]))").asClue {
                     it.columnNames shouldBe listOf("EmpID", "EmpName", "City", "Designation", "EmpID", "Department_ID", "DepartmentName")
                     it.columnTypes shouldBe listOf(
                         Int::class.javaObjectType,
