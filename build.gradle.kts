@@ -1,4 +1,3 @@
-@Suppress("DSL_SCOPE_VIOLATION") // https://youtrack.jetbrains.com/issue/KTIJ-19369
 plugins {
     alias(libs.plugins.kotlin)
     alias(libs.plugins.modl)
@@ -7,7 +6,7 @@ plugins {
 allprojects {
     repositories {
         mavenCentral()
-        maven(url = "https://nexus.inductiveautomation.com/repository/public")
+        maven("https://nexus.inductiveautomation.com/repository/public")
     }
 }
 
@@ -17,13 +16,13 @@ subprojects {
 }
 
 ignitionModule {
-    name.set("Ignition Extensions")
-    fileName.set("Ignition-Extensions.modl")
-    id.set("org.imdc.extensions.IgnitionExtensions")
-    moduleVersion.set("${project.version}")
-    moduleDescription.set("Useful but niche extensions to Ignition for power users")
-    license.set("LICENSE.txt")
-    requiredIgnitionVersion.set(libs.versions.ignition)
+    name = "Ignition Extensions"
+    fileName = "Ignition-Extensions.modl"
+    id = "org.imdc.extensions.IgnitionExtensions"
+    moduleVersion = "${project.version}"
+    moduleDescription = "Useful but niche extensions to Ignition for power users"
+    license = "LICENSE.txt"
+    requiredIgnitionVersion = libs.versions.ignition
 
     projectScopes.putAll(
         mapOf(
@@ -42,9 +41,9 @@ ignitionModule {
         ),
     )
 
-    skipModlSigning.set(!findProperty("signModule").toString().toBoolean())
+    skipModlSigning = !findProperty("signModule").toString().toBoolean()
 }
 
 tasks.deployModl {
-    hostGateway.set("http://localhost:18088")
+    hostGateway = "http://localhost:18088"
 }

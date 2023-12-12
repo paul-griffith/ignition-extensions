@@ -3,7 +3,7 @@ enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 pluginManagement {
     repositories {
         gradlePluginPortal()
-        maven(url = "https://nexus.inductiveautomation.com/repository/public")
+        maven("https://nexus.inductiveautomation.com/repository/public")
     }
 }
 
