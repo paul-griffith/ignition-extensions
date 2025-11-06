@@ -9,6 +9,9 @@ import com.inductiveautomation.ignition.common.sqltags.history.BasicTagHistoryQu
 import com.inductiveautomation.ignition.common.sqltags.history.ReturnFormat
 import com.inductiveautomation.ignition.common.util.LoggerEx
 import com.inductiveautomation.ignition.gateway.model.GatewayContext
+import jakarta.servlet.http.HttpServlet
+import jakarta.servlet.http.HttpServletRequest
+import jakarta.servlet.http.HttpServletResponse
 import org.apache.http.entity.ContentType
 import java.io.PrintWriter
 import java.text.SimpleDateFormat
@@ -16,9 +19,6 @@ import java.time.Instant
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import java.util.Date
-import javax.servlet.http.HttpServlet
-import javax.servlet.http.HttpServletRequest
-import javax.servlet.http.HttpServletResponse
 
 class HistoryServlet : HttpServlet() {
     private lateinit var context: GatewayContext
