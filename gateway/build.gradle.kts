@@ -3,10 +3,6 @@ plugins {
     kotlin("jvm")
 }
 
-kotlin {
-    jvmToolchain(libs.versions.java.map(String::toInt).get())
-}
-
 dependencies {
     compileOnly(libs.bundles.gateway)
     compileOnly(projects.common)
