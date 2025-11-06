@@ -1,5 +1,6 @@
 package org.imdc.extensions.designer
 
+import com.inductiveautomation.ignition.common.gui.progress.DummyTaskProgressListener
 import com.inductiveautomation.ignition.common.script.hints.JythonElement
 import com.inductiveautomation.ignition.designer.IgnitionDesigner
 import com.inductiveautomation.ignition.designer.model.DesignerContext
@@ -22,6 +23,7 @@ class DesignerProjectExtensions(private val context: DesignerContext) : ProjectE
             context.frame,
             true, // forceAccess
             "handleSave",
+            DummyTaskProgressListener(), // pl (ProgressListener)
             false, // saveAs
             null, // newName
             false, // commitOnly
