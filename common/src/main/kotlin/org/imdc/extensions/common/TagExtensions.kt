@@ -38,9 +38,10 @@ abstract class TagExtensions {
 
     protected open fun parseTagPath(path: String): TagPath {
         val parsed = TagPathParser.parse(ScriptContext.getDefaultTagProvider().orElseThrow(), path)
-        val tagPathRoot = ScriptContext.getRelativeTagPathRoot().getOrNull()
-        if (TagPathParser.isRelativePath(parsed) && tagPathRoot != null) {
-            return TagPathParser.derelativize(parsed, tagPathRoot)
+        ScriptContext.getRelativeTagPathRoot().getOrNull()?.let { tagPathRoot ->
+            if(TagPathParser.isRelativePath(parsed)) {
+                return TagPathParser.derelativize(parsed, tagPathRoot)
+            }
         }
         return parsed
     }
